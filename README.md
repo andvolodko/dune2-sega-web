@@ -1,6 +1,7 @@
 # Dune II: The Battle for Arrakis — ReArrakis Modern Port
 
 [![Platform: WebAssembly](https://img.shields.io/badge/Platform-WebAssembly%20%2F%20HTML5-orange.svg)](#quick-start)
+[![Play Online: GitHub Pages](https://img.shields.io/badge/Play%20Online-GitHub%20Pages-brightgreen.svg)](https://andvolodko.github.io/dune2-sega-web/)
 [![Engine: ReArrakis AOT](https://img.shields.io/badge/Engine-ReArrakis%20Static%20Decompilation-red.svg)](https://github.com/kruzeman/ReArrakis)
 [![Audio: Yamaha YM2612](https://img.shields.io/badge/Audio-YM2612%20FM%20Stereo-green.svg)](#audio--features)
 
@@ -10,11 +11,12 @@ A modern, high-performance port of the legendary Sega Genesis RTS **Dune II: The
 
 ## 🌟 Highlights
 
+- **Play Online:** Play instantly in any web browser without installation at **[https://andvolodko.github.io/dune2-sega-web/](https://andvolodko.github.io/dune2-sega-web/)**
 - **Native RTS Mouse Controls:** Point-and-click unit selection, right-click orders, build placement, context menus, and mouse wheel tactical zoom (50% - 100%).
 - **Adaptive Widescreen:** Extended battlefield rendering up to 1080p, beyond the original 320×224 Sega viewport.
 - **60 FPS Hardware Acceleration:** Fluid simulation with zero frame drops on modern hardware.
 - **Authentic Yamaha FM Audio:** Emulated Yamaha YM2612 and PSG sound chip synthesis.
-- **Instant Web Play:** Play instantly in any modern browser at [http://localhost:8000](http://localhost:8000).
+- **Local Play:** Play locally via `node server.js` at [http://localhost:8000](http://localhost:8000).
 
 ---
 
