@@ -7,6 +7,10 @@
 
 A modern, high-performance port of the legendary Sega Genesis RTS **Dune II: The Battle for Arrakis** powered by **ReArrakis** ahead-of-time (AOT) static binary recompilation into native C11/C++ and WebAssembly.
 
+> 🎮 **Play Instantly in Your Browser:**  
+> 👉 **[https://andvolodko.github.io/dune2-sega-web/](https://andvolodko.github.io/dune2-sega-web/)**  
+> *(No installation required — supports modern RTS mouse controls, 60 FPS widescreen, and authentic Yamaha FM sound!)*
+
 ---
 
 ## 🌟 Highlights
@@ -111,6 +115,13 @@ Enter in the **Password** menu from the game start screen:
 - **Frontend:** SDL2 (Simple DirectMedia Layer 2) video, audio, and event loop.
 - **Sound Synthesis:** `ymfm` Yamaha YM2612 and Texas Instruments SN76489 PSG emulator.
 - **WebAssembly Core:** Compiled via Emscripten `emsdk` with native 60 FPS `emscripten_set_main_loop` hardware `requestAnimationFrame` synchronization.
+
+---
+
+## 💬 Community & Feedback
+
+- 🐞 **Found a bug or have a suggestion?** Open an [Issue](https://github.com/andvolodko/dune2-sega-web/issues).
+- 💬 **Want to discuss strategy, features, or porting?** Join the [Discussions](https://github.com/andvolodko/dune2-sega-web/discussions).
 
 ---
 

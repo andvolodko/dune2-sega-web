@@ -99,7 +99,26 @@
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+    }
+    .header-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border-gold);
+      opacity: 0.4;
+      margin: 0 2px;
+    }
+    .btn-gh {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .btn-gh:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #fff;
+    }
+    @media (max-width: 980px) {
+      .brand-subtitle { display: none; }
     }
 
     /* Buttons */
@@ -537,12 +556,19 @@
       <button class="btn" id="btn-toggle-sidebar" title="View Level Passwords">
         <span>🗝️</span> Level Passwords
       </button>
-      <button class="btn" id="btn-manual">
-        <span>📖</span> Manual & Controls
+      <button class="btn" id="btn-manual" title="Mouse and Keyboard Controls Manual">
+        <span>📖</span> Manual
       </button>
-      <button class="btn" id="btn-cheats">
+      <button class="btn" id="btn-cheats" title="Secret Master Cheats & Invulnerability">
         <span>👑</span> Cheats
       </button>
+      <span class="header-divider"></span>
+      <a class="btn btn-gh" href="https://github.com/andvolodko/dune2-sega-web/issues" target="_blank" rel="noopener noreferrer" title="Report a Bug or Request a Feature on GitHub">
+        <span>🐞</span> Issues
+      </a>
+      <a class="btn btn-gh" href="https://github.com/andvolodko/dune2-sega-web/discussions" target="_blank" rel="noopener noreferrer" title="Community Discussions & Chat on GitHub">
+        <span>💬</span> Discussions
+      </a>
     </div>
   </header>
 
