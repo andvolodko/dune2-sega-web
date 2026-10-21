@@ -49,27 +49,26 @@ static int dune_view_mouse(SDLHost *h,const CPU *c,int mx,int my,int *x,int *y,i
 }
 static void dune_view_pointer(SDLHost *h,const CPU *c){
     DuneView *v=&h->dune_view;DuneMouse *m=&h->dune_mouse;
-    if(!v->pointer_valid)return;
+    if(!v->pointer_valid){
+        m->pan_x=0;m->pan_y=0;
+        return;
+    }
     int x,y,world;
     if(!dune_view_mouse(h,c,v->pointer_x,v->pointer_y,&x,&y,&world)){
-        if(dune_view_map(c)){m->camera_hold=1;m->pan_x=m->pan_y=0;}
+        if(dune_view_map(c)){m->camera_hold=1;}
+        m->pan_x=0;m->pan_y=0;
         return;
     }
     if(world)dune_mouse_world_point(m,c,x,y);else dune_mouse_point(m,c,x,y);
     m->pan_x=m->pan_y=0;
     if(world && h->window){
-        int w,height;if(SDL_GetRendererOutputSize(h->renderer,&w,&height))return;
-        DuneLayout p=dune_view_host_layout(h,c,w,height);
-        /* Match the visible cursor: a snapped 32px cell or the free square
-           spanning -13..12 around its anchor. Compare in drawable pixels,
-           so zoom and Retina scaling affect scrolling just like rendering. */
-        int grid=dune_long(c,0xe002)==0x6092;
-        int left=grid?(x&~31):x-13,top=grid?(y&~31):y-13;
-        int size=grid?32:26;
-        m->pan_x=(left-p.left)*p.world_scale<=0?-3:
-                 (left+size-p.left)*p.world_scale>=w?3:0;
-        m->pan_y=(top-p.top)*p.world_scale<=0?-3:
-                 (top+size-p.top)*p.world_scale>=height?3:0;
+        int ww,wh;SDL_GetWindowSize(h->window,&ww,&wh);
+        if(ww<=0 || wh<=0)return;
+        int mx=v->pointer_x, my=v->pointer_y;
+        if(mx>=0 && mx<ww && my>=0 && my<wh){
+            m->pan_x=mx<=16?-3:(mx>=ww-16?3:0);
+            m->pan_y=my<=16?-3:(my>=wh-16?3:0);
+        }
     }
 }
 static int dune_view_event(SDLHost *h,CPU *c,const SDL_Event *e){
@@ -102,7 +101,7 @@ static int dune_view_event(SDLHost *h,CPU *c,const SDL_Event *e){
         int anchor=h->dune_view.pointer_valid && dune_view_mouse(h,c,h->dune_view.pointer_x,h->dune_view.pointer_y,&ax,&ay,&world) && world;
         int delta=e->wheel.y;if(delta>20)delta=20;if(delta<-20)delta=-20;
         if(e->wheel.direction==SDL_MOUSEWHEEL_FLIPPED)delta=-delta;
-        int zoom=(int)h->dune_view.zoom+delta*10;if(zoom<50)zoom=50;if(zoom>100)zoom=100;
+        int zoom=(int)h->dune_view.zoom+delta*10;if(zoom<60)zoom=60;if(zoom>100)zoom=100;
         h->dune_view.zoom=zoom;
         if(anchor){
             int ww,wh;SDL_GetWindowSize(h->window,&ww,&wh);
@@ -156,11 +155,13 @@ static int dune_view_draw(SDLHost *h,CPU *c){
     }else{
         DuneView *d=&h->dune_view;
         dune_view_pointer(h,c);
-        int hide_cursor=d->pointer_valid && !h->dune_mouse.point_world;
-        if(d->cursor_hidden!=hide_cursor)d->frame=UINT64_MAX;
-        d->cursor_hidden=hide_cursor;
-        if(d->cursor_valid!=h->dune_mouse.point_world || d->cursor_x!=h->dune_mouse.wx || d->cursor_y!=h->dune_mouse.wy)d->frame=UINT64_MAX;
-        d->cursor_valid=h->dune_mouse.point_world;d->cursor_x=h->dune_mouse.wx;d->cursor_y=h->dune_mouse.wy;
+        if(d->pointer_valid){
+            int hide_cursor=!h->dune_mouse.point_world;
+            if(d->cursor_hidden!=hide_cursor)d->frame=UINT64_MAX;
+            d->cursor_hidden=hide_cursor;
+            if(d->cursor_valid!=h->dune_mouse.point_world || d->cursor_x!=h->dune_mouse.wx || d->cursor_y!=h->dune_mouse.wy)d->frame=UINT64_MAX;
+            d->cursor_valid=h->dune_mouse.point_world;d->cursor_x=h->dune_mouse.wx;d->cursor_y=h->dune_mouse.wy;
+        }
         /* Replay is bounded and skipped on expose events for an unchanged frame/layout. */
         if(d->frame!=v->rendered_frames || d->width!=(unsigned)p.world_width || d->height!=(unsigned)p.world_height || d->left!=p.left || d->top!=p.top){
             if(!dune_view_build(d,c,&p))return sdl_host_error(h,"Dune world traversal failed");

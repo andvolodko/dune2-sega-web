@@ -858,24 +858,28 @@ static int dune_mouse_world_local(const CPU *c,int wx,int wy,int *x,int *y){
 static void dune_mouse_pan(DuneMouse *m,CPU *c){
     if(c->pc!=0x78d0 || !m->camera_hold || c->pad_buttons[0] || dune_mouse_context(c)!=1)return;
     int queued=m->count && m->queue[m->head].world;
-    DuneClick hover={.wx=m->wx,.wy=m->wy};
-    DuneClick *q=queued?&m->queue[m->head]:m->point_world?&hover:NULL;int x,y;
-    int visible=q?dune_mouse_world_local(c,q->wx,q->wy,&x,&y):1;
+    if(!queued){
+        c->d[0]=(c->d[0]&~65535u);
+        c->d[1]=(c->d[1]&~65535u);
+        return;
+    }
+    DuneClick *q=&m->queue[m->head];int x,y;
+    int visible=dune_mouse_world_local(c,q->wx,q->wy,&x,&y);
     int moved=0;
     for(unsigned axis=0;axis<2;++axis){
         int pos=dune_word(c,0xe3ec+axis*2);
-        int target=q?(axis?q->wy-112:q->wx-160):pos;
+        int target=axis?q->wy-112:q->wx-160;
         unsigned bound=axis?0xe3fc:0xe400;
         int low=(int16_t)dune_word(c,bound),high=(int16_t)dune_word(c,bound+2);
         if(low<=high){if(target<low)target=low;if(target>high)target=high;}
-        int delta=q && visible?0:target-pos;if(delta>7)delta=7;if(delta<-7)delta=-7;
+        int delta=visible?0:target-pos;if(delta>7)delta=7;if(delta<-7)delta=-7;
         moved|=delta!=0;
         /* $78D8 stores D0/D1 into the camera delta fields itself. */
         c->d[axis]=(c->d[axis]&~65535u)|(uint16_t)delta;
     }
     /* The original mission camera bounds may exclude a border cell. Do not
        turn an unreachable click into a command at a different coordinate. */
-    if(queued && !visible && !moved){m->head=(m->head+1)%8;--m->count;m->stage=0;}
+    if(!visible && !moved){m->head=(m->head+1)%8;--m->count;m->stage=0;}
 }
 static void dune_mouse_warp(DuneMouse *m,CPU *c,int x,int y) {
     int left=dune_word(c,0xbf1a),top=dune_word(c,0xbf1c);
@@ -1940,27 +1944,26 @@ static int dune_view_mouse(SDLHost *h,const CPU *c,int mx,int my,int *x,int *y,i
 }
 static void dune_view_pointer(SDLHost *h,const CPU *c){
     DuneView *v=&h->dune_view;DuneMouse *m=&h->dune_mouse;
-    if(!v->pointer_valid)return;
+    if(!v->pointer_valid){
+        m->pan_x=0;m->pan_y=0;
+        return;
+    }
     int x,y,world;
     if(!dune_view_mouse(h,c,v->pointer_x,v->pointer_y,&x,&y,&world)){
-        if(dune_view_map(c)){m->camera_hold=1;m->pan_x=m->pan_y=0;}
+        if(dune_view_map(c)){m->camera_hold=1;}
+        m->pan_x=0;m->pan_y=0;
         return;
     }
     if(world)dune_mouse_world_point(m,c,x,y);else dune_mouse_point(m,c,x,y);
     m->pan_x=m->pan_y=0;
     if(world && h->window){
-        int w,height;if(SDL_GetRendererOutputSize(h->renderer,&w,&height))return;
-        DuneLayout p=dune_view_host_layout(h,c,w,height);
-        /* Match the visible cursor: a snapped 32px cell or the free square
-           spanning -13..12 around its anchor. Compare in drawable pixels,
-           so zoom and Retina scaling affect scrolling just like rendering. */
-        int grid=dune_long(c,0xe002)==0x6092;
-        int left=grid?(x&~31):x-13,top=grid?(y&~31):y-13;
-        int size=grid?32:26;
-        m->pan_x=(left-p.left)*p.world_scale<=0?-3:
-                 (left+size-p.left)*p.world_scale>=w?3:0;
-        m->pan_y=(top-p.top)*p.world_scale<=0?-3:
-                 (top+size-p.top)*p.world_scale>=height?3:0;
+        int ww,wh;SDL_GetWindowSize(h->window,&ww,&wh);
+        if(ww<=0 || wh<=0)return;
+        int mx=v->pointer_x, my=v->pointer_y;
+        if(mx>=0 && mx<ww && my>=0 && my<wh){
+            m->pan_x=mx<=16?-3:(mx>=ww-16?3:0);
+            m->pan_y=my<=16?-3:(my>=wh-16?3:0);
+        }
     }
 }
 static int dune_view_event(SDLHost *h,CPU *c,const SDL_Event *e){
@@ -1993,7 +1996,7 @@ static int dune_view_event(SDLHost *h,CPU *c,const SDL_Event *e){
         int anchor=h->dune_view.pointer_valid && dune_view_mouse(h,c,h->dune_view.pointer_x,h->dune_view.pointer_y,&ax,&ay,&world) && world;
         int delta=e->wheel.y;if(delta>20)delta=20;if(delta<-20)delta=-20;
         if(e->wheel.direction==SDL_MOUSEWHEEL_FLIPPED)delta=-delta;
-        int zoom=(int)h->dune_view.zoom+delta*10;if(zoom<50)zoom=50;if(zoom>100)zoom=100;
+        int zoom=(int)h->dune_view.zoom+delta*10;if(zoom<60)zoom=60;if(zoom>100)zoom=100;
         h->dune_view.zoom=zoom;
         if(anchor){
             int ww,wh;SDL_GetWindowSize(h->window,&ww,&wh);
@@ -2110,7 +2113,12 @@ static void sdl_host_audio_open(SDLHost *h,CPU *c) {
         fprintf(stderr,"SDL2 audio unavailable: %s; video continues\n",SDL_GetError());return;
     }
     SDL_AudioSpec desired={0},obtained={0};
-    desired.freq=AUDIO_RATE;desired.format=AUDIO_S16SYS;desired.channels=2;desired.samples=512;
+    desired.freq=AUDIO_RATE;desired.format=AUDIO_S16SYS;desired.channels=2;
+#ifdef __EMSCRIPTEN__
+    desired.samples=2048;
+#else
+    desired.samples=512;
+#endif
     h->audio_device=SDL_OpenAudioDevice(NULL,0,&desired,&obtained,0);
     if(!h->audio_device) {
         fprintf(stderr,"SDL2 audio device unavailable: %s; video continues\n",SDL_GetError());return;
@@ -2127,9 +2135,15 @@ static int sdl_host_audio_service(SDLHost *h,CPU *c) {
     }
     // Bound latency even when a host cannot keep up. Never change chip clocks.
     Uint32 queued=SDL_GetQueuedAudioSize(h->audio_device);
+#ifdef __EMSCRIPTEN__
+    if(queued>AUDIO_RATE*4/2){
+        c->audio.dropped+=queued/4;SDL_ClearQueuedAudio(h->audio_device);h->audio_running=0;
+    }
+#else
     if(queued>AUDIO_RATE*4/10){
         c->audio.dropped+=queued/4;SDL_ClearQueuedAudio(h->audio_device);h->audio_running=0;
     }
+#endif
     int16_t buffer[1024*2];unsigned count;
     while((count=audio_pop(c,buffer,1024))!=0) {
 #ifdef GENESIS_DUNE_MOUSE
@@ -2163,7 +2177,10 @@ static void dune_mouse_event(SDLHost *h,CPU *c,const SDL_Event *e) {
         h->dune_view.pointer_valid=1;h->dune_view.pointer_x=e->motion.x;h->dune_view.pointer_y=e->motion.y;
         int x,y,world;
         if(!dune_view_mouse(h,c,e->motion.x,e->motion.y,&x,&y,&world) ||
-           !(world?dune_mouse_world_point(m,c,x,y):dune_mouse_point(m,c,x,y)))dune_mouse_reset(m);
+           !(world?dune_mouse_world_point(m,c,x,y):dune_mouse_point(m,c,x,y))){
+            dune_mouse_reset(m);
+            h->dune_view.pointer_valid=0;m->pan_x=0;m->pan_y=0;
+        }
         dune_view_pointer(h,c);
     } else if(e->type==SDL_MOUSEBUTTONDOWN) {
         h->dune_view.pointer_valid=1;h->dune_view.pointer_x=e->button.x;h->dune_view.pointer_y=e->button.y;
@@ -2180,7 +2197,7 @@ static void dune_mouse_event(SDLHost *h,CPU *c,const SDL_Event *e) {
                (e->window.event==SDL_WINDOWEVENT_FOCUS_LOST ||
                 e->window.event==SDL_WINDOWEVENT_LEAVE)) ||
               (e->type==SDL_KEYDOWN && sdl_pad_key(e->key.keysym.sym))) {
-        h->dune_view.pointer_valid=0;dune_mouse_reset(m);
+        h->dune_view.pointer_valid=0;m->pan_x=0;m->pan_y=0;dune_mouse_reset(m);
         if(e->type==SDL_WINDOWEVENT && dune_view_map(c))m->camera_hold=1;
     }
 }
@@ -2260,6 +2277,7 @@ __attribute__((noinline, used)) int sdl_host_service(SDLHost *h, CPU *c) {
         }
     }
     if (redraw || h->last_frame!=c->vdp.rendered_frames){
+        if(!sdl_host_audio_service(h,c))return 0;
 #ifdef GENESIS_DUNE_MOUSE
         if(!dune_view_draw(h,c))return 0;
 #else
@@ -2300,6 +2318,286 @@ static int parse_number(const char *s, uint64_t *out) {
 static CPU em_cpu;
 static SDLHost em_host;
 static int em_window = 0;
+
+#define DUNE_SAVESTATE_MAGIC 0x56415344
+#define DUNE_SAVESTATE_VERSION 1
+
+typedef struct {
+    uint32_t magic;
+    uint32_t version;
+    uint32_t ym_size;
+    uint32_t total_size;
+
+    uint32_t d[8], a[8], pc, usp, ssp;
+    uint16_t sr;
+    uint8_t ram[65536];
+    uint8_t io_data[3], io_control[3], tmss[4];
+    uint8_t io_tx[3], io_serial_control[3];
+    uint8_t pad_buttons[3];
+
+    uint8_t vdp_registers[24];
+    uint8_t vdp_vram[65536];
+    uint16_t vdp_cram[64];
+    uint16_t vdp_vsram[40];
+    uint16_t vdp_address, vdp_bus_value;
+    uint8_t vdp_code, vdp_command_pending, vdp_fill_pending;
+    uint64_t vdp_data_reads, vdp_data_writes, vdp_dma_bytes;
+    uint16_t vdp_line, vdp_line_clock;
+    uint8_t vdp_hint_counter, vdp_irq_h, vdp_irq_v, vdp_vint_status, vdp_pal;
+    uint64_t vdp_frames;
+
+    uint8_t z80_ram[8192];
+    uint8_t z80_requested, z80_reset_released;
+    uint16_t z80_bank;
+    uint64_t z80_ram_writes;
+
+    uint8_t z80_r8[6], z80_alternate[6], z80_a, z80_f, z80_a_alt, z80_f_alt;
+    uint8_t z80_i, z80_r, z80_iff1, z80_iff2, z80_im, z80_halted;
+    uint8_t z80_irq_line, z80_ei_delay;
+    uint16_t z80_pc, z80_sp, z80_ix, z80_iy, z80_wz;
+    int64_t z80_debt;
+    uint64_t z80_steps, z80_cycles, z80_interrupts;
+
+    PSG psg;
+    EEPROM eeprom;
+
+    uint64_t steps, cycles, master_cycles, interrupts;
+    unsigned instruction_cycles, z80_divider;
+    int halted;
+} DuneSaveState;
+
+static uint8_t g_dune_state_buffer[256 * 1024];
+
+EMSCRIPTEN_KEEPALIVE uint8_t *dune_get_save_buffer(void) {
+    return g_dune_state_buffer;
+}
+
+EMSCRIPTEN_KEEPALIVE int dune_save_state_to_buffer(void) {
+    if (!em_window) return 0;
+    DuneSaveState *s = (DuneSaveState *)g_dune_state_buffer;
+    memset(s, 0, sizeof(*s));
+
+    s->magic = DUNE_SAVESTATE_MAGIC;
+    s->version = DUNE_SAVESTATE_VERSION;
+
+    memcpy(s->d, em_cpu.d, sizeof(s->d));
+    memcpy(s->a, em_cpu.a, sizeof(s->a));
+    s->pc = em_cpu.pc;
+    s->usp = em_cpu.usp;
+    s->ssp = em_cpu.ssp;
+    s->sr = em_cpu.sr;
+    memcpy(s->ram, em_cpu.ram, sizeof(s->ram));
+    memcpy(s->io_data, em_cpu.io_data, sizeof(s->io_data));
+    memcpy(s->io_control, em_cpu.io_control, sizeof(s->io_control));
+    memcpy(s->tmss, em_cpu.tmss, sizeof(s->tmss));
+    memcpy(s->io_tx, em_cpu.io_tx, sizeof(s->io_tx));
+    memcpy(s->io_serial_control, em_cpu.io_serial_control, sizeof(s->io_serial_control));
+    memcpy(s->pad_buttons, em_cpu.pad_buttons, sizeof(s->pad_buttons));
+
+    memcpy(s->vdp_registers, em_cpu.vdp.registers, sizeof(s->vdp_registers));
+    memcpy(s->vdp_vram, em_cpu.vdp.vram, sizeof(s->vdp_vram));
+    memcpy(s->vdp_cram, em_cpu.vdp.cram, sizeof(s->vdp_cram));
+    memcpy(s->vdp_vsram, em_cpu.vdp.vsram, sizeof(s->vdp_vsram));
+    s->vdp_address = em_cpu.vdp.address;
+    s->vdp_bus_value = em_cpu.vdp.bus_value;
+    s->vdp_code = em_cpu.vdp.code;
+    s->vdp_command_pending = em_cpu.vdp.command_pending;
+    s->vdp_fill_pending = em_cpu.vdp.fill_pending;
+    s->vdp_data_reads = em_cpu.vdp.data_reads;
+    s->vdp_data_writes = em_cpu.vdp.data_writes;
+    s->vdp_dma_bytes = em_cpu.vdp.dma_bytes;
+    s->vdp_line = em_cpu.vdp.line;
+    s->vdp_line_clock = em_cpu.vdp.line_clock;
+    s->vdp_hint_counter = em_cpu.vdp.hint_counter;
+    s->vdp_irq_h = em_cpu.vdp.irq_h;
+    s->vdp_irq_v = em_cpu.vdp.irq_v;
+    s->vdp_vint_status = em_cpu.vdp.vint_status;
+    s->vdp_pal = em_cpu.vdp.pal;
+    s->vdp_frames = em_cpu.vdp.frames;
+
+    memcpy(s->z80_ram, em_cpu.z80_bus.ram, sizeof(s->z80_ram));
+    s->z80_requested = em_cpu.z80_bus.requested;
+    s->z80_reset_released = em_cpu.z80_bus.reset_released;
+    s->z80_bank = em_cpu.z80_bus.bank;
+    s->z80_ram_writes = em_cpu.z80_bus.ram_writes;
+
+    memcpy(s->z80_r8, em_cpu.z80_cpu.r8, sizeof(s->z80_r8));
+    memcpy(s->z80_alternate, em_cpu.z80_cpu.alternate, sizeof(s->z80_alternate));
+    s->z80_a = em_cpu.z80_cpu.a;
+    s->z80_f = em_cpu.z80_cpu.f;
+    s->z80_a_alt = em_cpu.z80_cpu.a_alt;
+    s->z80_f_alt = em_cpu.z80_cpu.f_alt;
+    s->z80_i = em_cpu.z80_cpu.i;
+    s->z80_r = em_cpu.z80_cpu.r;
+    s->z80_iff1 = em_cpu.z80_cpu.iff1;
+    s->z80_iff2 = em_cpu.z80_cpu.iff2;
+    s->z80_im = em_cpu.z80_cpu.im;
+    s->z80_halted = em_cpu.z80_cpu.halted;
+    s->z80_irq_line = em_cpu.z80_cpu.irq_line;
+    s->z80_ei_delay = em_cpu.z80_cpu.ei_delay;
+    s->z80_pc = em_cpu.z80_cpu.pc;
+    s->z80_sp = em_cpu.z80_cpu.sp;
+    s->z80_ix = em_cpu.z80_cpu.ix;
+    s->z80_iy = em_cpu.z80_cpu.iy;
+    s->z80_wz = em_cpu.z80_cpu.wz;
+    s->z80_debt = em_cpu.z80_cpu.debt;
+    s->z80_steps = em_cpu.z80_cpu.steps;
+    s->z80_cycles = em_cpu.z80_cpu.cycles;
+    s->z80_interrupts = em_cpu.z80_cpu.interrupts;
+
+    s->psg = em_cpu.psg;
+    s->eeprom = em_cpu.eeprom;
+
+    s->steps = em_cpu.steps;
+    s->cycles = em_cpu.cycles;
+    s->master_cycles = em_cpu.master_cycles;
+    s->interrupts = em_cpu.interrupts;
+    s->instruction_cycles = em_cpu.instruction_cycles;
+    s->z80_divider = em_cpu.z80_divider;
+    s->halted = em_cpu.halted;
+
+    uint32_t ym_size = 0;
+#ifdef GENESIS_AUDIO
+    if (em_cpu.audio_mode == AUDIO_ON && em_cpu.audio.fm) {
+        ym_size = (uint32_t)genesis_ymfm_state_size(em_cpu.audio.fm);
+        if (ym_size > 0 && sizeof(*s) + ym_size <= sizeof(g_dune_state_buffer)) {
+            if (genesis_ymfm_save_state(em_cpu.audio.fm, g_dune_state_buffer + sizeof(*s), ym_size)) {
+                s->ym_size = ym_size;
+            } else {
+                s->ym_size = 0;
+            }
+        }
+    }
+#endif
+    s->total_size = sizeof(*s) + s->ym_size;
+    return (int)s->total_size;
+}
+
+EMSCRIPTEN_KEEPALIVE int dune_load_state_from_buffer(int size) {
+    if (!em_window || size < (int)sizeof(DuneSaveState)) return 0;
+    const DuneSaveState *s = (const DuneSaveState *)g_dune_state_buffer;
+    if (s->magic != DUNE_SAVESTATE_MAGIC || s->version != DUNE_SAVESTATE_VERSION) return 0;
+    if ((int)s->total_size > size) return 0;
+
+    memcpy(em_cpu.d, s->d, sizeof(s->d));
+    memcpy(em_cpu.a, s->a, sizeof(s->a));
+    em_cpu.pc = s->pc;
+    em_cpu.usp = s->usp;
+    em_cpu.ssp = s->ssp;
+    em_cpu.sr = s->sr;
+    memcpy(em_cpu.ram, s->ram, sizeof(s->ram));
+    memcpy(em_cpu.io_data, s->io_data, sizeof(s->io_data));
+    memcpy(em_cpu.io_control, s->io_control, sizeof(s->io_control));
+    memcpy(em_cpu.tmss, s->tmss, sizeof(s->tmss));
+    memcpy(em_cpu.io_tx, s->io_tx, sizeof(s->io_tx));
+    memcpy(em_cpu.io_serial_control, s->io_serial_control, sizeof(s->io_serial_control));
+    memcpy(em_cpu.pad_buttons, s->pad_buttons, sizeof(s->pad_buttons));
+
+    memcpy(em_cpu.vdp.registers, s->vdp_registers, sizeof(s->vdp_registers));
+    memcpy(em_cpu.vdp.vram, s->vdp_vram, sizeof(s->vdp_vram));
+    memcpy(em_cpu.vdp.cram, s->vdp_cram, sizeof(s->vdp_cram));
+    memcpy(em_cpu.vdp.vsram, s->vdp_vsram, sizeof(s->vdp_vsram));
+    em_cpu.vdp.address = s->vdp_address;
+    em_cpu.vdp.bus_value = s->vdp_bus_value;
+    em_cpu.vdp.code = s->vdp_code;
+    em_cpu.vdp.command_pending = s->vdp_command_pending;
+    em_cpu.vdp.fill_pending = s->vdp_fill_pending;
+    em_cpu.vdp.data_reads = s->vdp_data_reads;
+    em_cpu.vdp.data_writes = s->vdp_data_writes;
+    em_cpu.vdp.dma_bytes = s->vdp_dma_bytes;
+    em_cpu.vdp.line = s->vdp_line;
+    em_cpu.vdp.line_clock = s->vdp_line_clock;
+    em_cpu.vdp.hint_counter = s->vdp_hint_counter;
+    em_cpu.vdp.irq_h = s->vdp_irq_h;
+    em_cpu.vdp.irq_v = s->vdp_irq_v;
+    em_cpu.vdp.vint_status = s->vdp_vint_status;
+    em_cpu.vdp.pal = s->vdp_pal;
+    em_cpu.vdp.frames = s->vdp_frames;
+
+    memcpy(em_cpu.z80_bus.ram, s->z80_ram, sizeof(s->z80_ram));
+    em_cpu.z80_bus.requested = s->z80_requested;
+    em_cpu.z80_bus.reset_released = s->z80_reset_released;
+    em_cpu.z80_bus.bank = s->z80_bank;
+    em_cpu.z80_bus.ram_writes = s->z80_ram_writes;
+
+    memcpy(em_cpu.z80_cpu.r8, s->z80_r8, sizeof(s->z80_r8));
+    memcpy(em_cpu.z80_cpu.alternate, s->z80_alternate, sizeof(s->z80_alternate));
+    em_cpu.z80_cpu.a = s->z80_a;
+    em_cpu.z80_cpu.f = s->z80_f;
+    em_cpu.z80_cpu.a_alt = s->z80_a_alt;
+    em_cpu.z80_cpu.f_alt = s->z80_f_alt;
+    em_cpu.z80_cpu.i = s->z80_i;
+    em_cpu.z80_cpu.r = s->z80_r;
+    em_cpu.z80_cpu.iff1 = s->z80_iff1;
+    em_cpu.z80_cpu.iff2 = s->z80_iff2;
+    em_cpu.z80_cpu.im = s->z80_im;
+    em_cpu.z80_cpu.halted = s->z80_halted;
+    em_cpu.z80_cpu.irq_line = s->z80_irq_line;
+    em_cpu.z80_cpu.ei_delay = s->z80_ei_delay;
+    em_cpu.z80_cpu.pc = s->z80_pc;
+    em_cpu.z80_cpu.sp = s->z80_sp;
+    em_cpu.z80_cpu.ix = s->z80_ix;
+    em_cpu.z80_cpu.iy = s->z80_iy;
+    em_cpu.z80_cpu.wz = s->z80_wz;
+    em_cpu.z80_cpu.debt = s->z80_debt;
+    em_cpu.z80_cpu.steps = s->z80_steps;
+    em_cpu.z80_cpu.cycles = s->z80_cycles;
+    em_cpu.z80_cpu.interrupts = s->z80_interrupts;
+
+    em_cpu.psg = s->psg;
+    em_cpu.eeprom = s->eeprom;
+
+    em_cpu.steps = s->steps;
+    em_cpu.cycles = s->cycles;
+    em_cpu.master_cycles = s->master_cycles;
+    em_cpu.interrupts = s->interrupts;
+    em_cpu.instruction_cycles = s->instruction_cycles;
+    em_cpu.z80_divider = s->z80_divider;
+    em_cpu.halted = s->halted;
+    em_cpu.fault = 0;
+    em_cpu.reason = NULL;
+
+#ifdef GENESIS_AUDIO
+    if (em_cpu.audio_mode == AUDIO_ON && em_cpu.audio.fm) {
+        if (s->ym_size > 0 && sizeof(*s) + s->ym_size <= (size_t)size) {
+            void *new_fm = genesis_ymfm_load_state(g_dune_state_buffer + sizeof(*s), s->ym_size);
+            if (new_fm) {
+                genesis_ymfm_destroy(em_cpu.audio.fm);
+                em_cpu.audio.fm = new_fm;
+            } else {
+                genesis_ymfm_reset(em_cpu.audio.fm);
+            }
+        } else {
+            genesis_ymfm_reset(em_cpu.audio.fm);
+        }
+    }
+#endif
+    em_cpu.audio.read = 0;
+    em_cpu.audio.count = 0;
+    em_cpu.audio.cursor = em_cpu.master_cycles;
+    em_cpu.audio.next_sample = em_cpu.master_cycles;
+
+    sdl_host_rebase(&em_host, &em_cpu);
+    em_host.next_service = em_cpu.master_cycles;
+    em_host.last_frame = 0;
+    return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE void dune_mouse_leave(void) {
+    if (!em_window) return;
+    em_host.dune_view.pointer_valid = 0;
+    em_host.dune_mouse.pan_x = 0;
+    em_host.dune_mouse.pan_y = 0;
+    dune_mouse_reset(&em_host.dune_mouse);
+    if (dune_view_map(&em_cpu)) {
+        em_host.dune_mouse.camera_hold = 1;
+        em_cpu.ram[0xbf12] = 0;
+        em_cpu.ram[0xbf13] = 160;
+        em_cpu.ram[0xbf14] = 0;
+        em_cpu.ram[0xbf15] = 112;
+        memset(em_cpu.ram + 0xbf0e, 0, 4);
+    }
+}
 
 static void em_main_loop_iter(void) {
     if (!em_window) return;

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <radialGradient id="space-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#ea580c" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#080c14" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="planet-grad" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="25%" stop-color="#f59e0b"/>
+      <stop offset="65%" stop-color="#c2410c"/>
+      <stop offset="100%" stop-color="#451a03"/>
+    </radialGradient>
+    <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#fbbf24" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ea580c" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="dune-crescent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#7c2d12" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <circle cx="32" cy="32" r="30" fill="url(#space-glow)"/>
+
+  <!-- Back Ring (behind planet) -->
+  <g transform="rotate(-25 32 32)">
+    <path d="M 4 32 A 28 8 0 0 1 60 32" fill="none" stroke="url(#ring-grad)" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+  </g>
+
+  <!-- Arrakis Planet Core -->
+  <circle cx="32" cy="32" r="18" fill="url(#planet-grad)"/>
+
+  <!-- Surface Dunes Details -->
+  <path d="M 16 35 Q 26 26 40 33 Q 48 37 49 32 A 18 18 0 0 1 16 35 Z" fill="#9a3412" opacity="0.45"/>
+  <path d="M 14 30 Q 24 38 38 29 Q 44 25 48 28 A 18 18 0 0 0 14 30 Z" fill="url(#dune-crescent)"/>
+
+  <!-- Atmosphere Rim Highlight -->
+  <circle cx="32" cy="32" r="17.5" fill="none" stroke="#fef08a" stroke-width="1" opacity="0.4"/>
+
+  <!-- Front Ring (in front of planet) -->
+  <g transform="rotate(-25 32 32)">
+    <path d="M 60 32 A 28 8 0 0 1 4 32" fill="none" stroke="url(#ring-grad)" stroke-width="3.5" stroke-linecap="round"/>
+    <ellipse cx="56" cy="32" rx="2" ry="1.2" fill="#fff" opacity="0.9"/>
+  </g>
+
+  <!-- Spice Glimmer Star -->
+  <circle cx="46" cy="18" r="1.5" fill="#fef08a"/>
+</svg>

@@ -5,540 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dune II: The Battle for Arrakis — ReArrakis Web Console</title>
   <meta name="description" content="Play Dune II: The Battle for Arrakis ported from Sega Genesis to native WebAssembly with modern PC RTS mouse controls, widescreen support, and 60 FPS gameplay." />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="alternate icon" href="favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <script src="coi-serviceworker.js"></script>
-  <style>
-    :root {
-      --bg-dark: #080c14;
-      --bg-panel: rgba(16, 24, 38, 0.85);
-      --bg-card: rgba(22, 33, 53, 0.7);
-      --border-gold: rgba(229, 155, 34, 0.35);
-      --border-subtle: rgba(255, 255, 255, 0.08);
-      --accent-gold: #f59e0b;
-      --accent-spice: #ea580c;
-      --accent-cyan: #06b6d4;
-      --accent-green: #10b981;
-      --accent-red: #ef4444;
-      --text-main: #f1f5f9;
-      --text-muted: #94a3b8;
-      --font-display: 'Orbitron', sans-serif;
-      --font-body: 'Inter', sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      height: 100%;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-    }
-    body {
-      background-color: var(--bg-dark);
-      background-image: 
-        radial-gradient(circle at 15% 15%, rgba(245, 158, 11, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(234, 88, 12, 0.06) 0%, transparent 45%),
-        linear-gradient(to bottom, #06090e, #0c121e);
-      color: var(--text-main);
-      font-family: var(--font-body);
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* Top Nav */
-    .header {
-      background: rgba(11, 17, 28, 0.96);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border-gold);
-      padding: 6px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 46px;
-      flex-shrink: 0;
-      z-index: 100;
-      position: relative;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .brand-icon {
-      font-size: 2rem;
-      filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5));
-    }
-    .brand-title h1 {
-      font-family: var(--font-display);
-      font-size: 1.25rem;
-      font-weight: 800;
-      letter-spacing: 1px;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .brand-title .badge {
-      font-family: var(--font-mono);
-      font-size: 0.65rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: #000;
-      padding: 2px 7px;
-      border-radius: 4px;
-      letter-spacing: 0.5px;
-    }
-    .brand-subtitle {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .header-divider {
-      width: 1px;
-      height: 20px;
-      background: var(--border-gold);
-      opacity: 0.4;
-      margin: 0 2px;
-    }
-    .btn-gh {
-      border-color: rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.04);
-    }
-    .btn-gh:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.35);
-      color: #fff;
-    }
-    @media (max-width: 980px) {
-      .brand-subtitle { display: none; }
-    }
-
-    /* Buttons */
-    .btn {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-main);
-      padding: 7px 14px;
-      border-radius: 6px;
-      font-family: var(--font-body);
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-      text-decoration: none;
-    }
-    .btn:hover {
-      background: rgba(245, 158, 11, 0.15);
-      border-color: var(--accent-gold);
-      color: #fff;
-      transform: translateY(-1px);
-    }
-    .btn-gold {
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.25));
-      border-color: var(--accent-gold);
-      color: var(--accent-gold);
-    }
-    .btn-gold:hover {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: #000;
-      box-shadow: 0 0 16px rgba(245, 158, 11, 0.4);
-    }
-    .btn-muted {
-      border-color: rgba(239, 68, 68, 0.45);
-      color: #ef4444;
-      background: rgba(239, 68, 68, 0.12);
-    }
-    .btn-muted:hover {
-      background: rgba(239, 68, 68, 0.25);
-      border-color: #ef4444;
-      color: #fff;
-    }
-
-    /* Main Layout - Fills All Available Space */
-    .main-container {
-      flex: 1;
-      width: 100%;
-      height: calc(100vh - 46px);
-      min-height: 0;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      position: relative;
-      overflow: hidden;
-      max-width: none;
-    }
-
-    /* Game Stage - Maximized Viewport */
-    .game-card {
-      flex: 1;
-      width: 100%;
-      height: 100%;
-      min-height: 0;
-      background: #000;
-      border: none;
-      border-radius: 0;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      box-shadow: none;
-      position: relative;
-      overflow: hidden;
-    }
-    .game-viewport-wrapper {
-      position: relative;
-      flex: 1;
-      width: 100%;
-      height: 100%;
-      min-height: 0;
-      background: #000;
-      border-radius: 0;
-      border: none;
-      overflow: hidden;
-      display: flex;
-    }
-    .game-frame {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-      flex: 1;
-    }
-
-    /* Fullscreen Mode */
-    .game-card:fullscreen,
-    .game-card:-webkit-full-screen {
-      width: 100vw !important;
-      height: 100vh !important;
-      background: #000;
-      padding: 0 !important;
-      margin: 0 !important;
-      border: none !important;
-    }
-    .game-card:fullscreen .game-viewport-wrapper,
-    .game-card:-webkit-full-screen .game-viewport-wrapper {
-      width: 100% !important;
-      height: calc(100% - 38px) !important;
-    }
-
-    /* CRT Overlay Effect */
-    .crt-overlay {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.04));
-      background-size: 100% 3px, 4px 100%;
-      pointer-events: none;
-      display: none;
-      z-index: 10;
-    }
-    .crt-active .crt-overlay {
-      display: block;
-    }
-
-    .viewport-controls {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 38px;
-      padding: 0 16px;
-      background: rgba(11, 17, 28, 0.96);
-      border-top: 1px solid rgba(229, 155, 34, 0.25);
-      backdrop-filter: blur(12px);
-      z-index: 20;
-    }
-
-    /* Slide-out Sidebar Drawer */
-    .sidebar {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: 380px;
-      max-width: 90vw;
-      background: rgba(11, 17, 28, 0.96);
-      backdrop-filter: blur(20px);
-      border-left: 1px solid var(--border-gold);
-      z-index: 60;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding: 16px;
-      overflow-y: auto;
-      transform: translateX(100%);
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: -12px 0 32px rgba(0, 0, 0, 0.85);
-    }
-    .sidebar.open {
-      transform: translateX(0);
-    }
-    .sidebar-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border-gold);
-      padding-bottom: 10px;
-      margin-bottom: 4px;
-    }
-    .sidebar-header h3 {
-      font-family: var(--font-display);
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--accent-gold);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .sidebar-close {
-      background: none;
-      border: 1px solid var(--border-subtle);
-      color: var(--text-muted);
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.9rem;
-      transition: all 0.2s;
-    }
-    .sidebar-close:hover {
-      background: rgba(239, 68, 68, 0.2);
-      border-color: var(--accent-red);
-      color: #fff;
-    }
-    .sidebar-backdrop {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.55);
-      backdrop-filter: blur(2px);
-      z-index: 55;
-      display: none;
-      opacity: 0;
-      transition: opacity 0.25s ease;
-    }
-    .sidebar-backdrop.open {
-      display: block;
-      opacity: 1;
-    }
-    .panel-card {
-      background: var(--bg-panel);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-subtle);
-      border-radius: 10px;
-      padding: 16px;
-    }
-    .panel-title {
-      font-family: var(--font-display);
-      font-size: 0.88rem;
-      font-weight: 700;
-      color: var(--accent-gold);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    /* Mouse Controls HUD */
-    .mouse-hud-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-    .mouse-hud-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 10px;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      font-size: 0.8rem;
-    }
-    .hud-key {
-      font-family: var(--font-mono);
-      font-weight: 700;
-      color: var(--accent-gold);
-      background: rgba(245, 158, 11, 0.12);
-      padding: 2px 8px;
-      border-radius: 4px;
-      border: 1px solid rgba(245, 158, 11, 0.3);
-    }
-
-    /* Passwords list */
-    .house-selector {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
-    .house-btn {
-      flex: 1;
-      padding: 6px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      border-radius: 4px;
-      border: 1px solid var(--border-subtle);
-      background: var(--bg-card);
-      color: var(--text-muted);
-      cursor: pointer;
-      text-align: center;
-      text-transform: uppercase;
-    }
-    .house-btn.active.atreides {
-      border-color: var(--accent-cyan);
-      background: rgba(6, 182, 212, 0.15);
-      color: #fff;
-    }
-    .house-btn.active.harkonnen {
-      border-color: var(--accent-red);
-      background: rgba(239, 68, 68, 0.15);
-      color: #fff;
-    }
-    .house-btn.active.ordos {
-      border-color: var(--accent-green);
-      background: rgba(16, 185, 129, 0.15);
-      color: #fff;
-    }
-
-    .passwords-box {
-      max-height: 240px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .pass-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 10px;
-      background: rgba(255, 255, 255, 0.02);
-      border-radius: 4px;
-      font-size: 0.78rem;
-      border: 1px solid var(--border-subtle);
-    }
-    .pass-code {
-      font-family: var(--font-mono);
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: 1px;
-    }
-    .btn-copy {
-      padding: 2px 8px;
-      font-size: 0.7rem;
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      color: var(--accent-gold);
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .btn-copy:hover {
-      background: var(--accent-gold);
-      color: #000;
-    }
-
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid var(--accent-gold);
-      color: #fff;
-      padding: 10px 18px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-      transform: translateY(100px);
-      opacity: 0;
-      transition: all 0.3s ease;
-      z-index: 1000;
-    }
-    .toast.show {
-      transform: translateY(0);
-      opacity: 1;
-    }
-
-    /* Modal */
-    .modal-backdrop {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(8px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 200;
-    }
-    .modal-backdrop.open { display: flex; }
-    .modal-card {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-gold);
-      border-radius: 12px;
-      width: 90%;
-      max-width: 600px;
-      max-height: 85vh;
-      overflow-y: auto;
-      padding: 24px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
-    }
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-    .modal-header h2 {
-      font-family: var(--font-display);
-      font-size: 1.15rem;
-      color: var(--accent-gold);
-    }
-    .modal-close {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-size: 1.2rem;
-      cursor: pointer;
-    }
-    .modal-close:hover { color: #fff; }
-    .modal-body {
-      font-size: 0.88rem;
-      line-height: 1.6;
-      color: #cbd5e1;
-    }
-    .modal-body h4 {
-      color: #fff;
-      margin: 14px 0 6px;
-      font-size: 0.95rem;
-    }
-    .modal-body ul {
-      padding-left: 20px;
-      margin-bottom: 12px;
-    }
-    .modal-body li {
-      margin-bottom: 4px;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
@@ -554,20 +27,20 @@
 
     <div class="header-actions">
       <button class="btn" id="btn-toggle-sidebar" title="View Level Passwords">
-        <span>🗝️</span> Level Passwords
+        <span>🗝️</span> <span class="nav-text">Passwords</span>
       </button>
       <button class="btn" id="btn-manual" title="Mouse and Keyboard Controls Manual">
-        <span>📖</span> Manual
+        <span>📖</span> <span class="nav-text">Manual</span>
       </button>
       <button class="btn" id="btn-cheats" title="Secret Master Cheats & Invulnerability">
-        <span>👑</span> Cheats
+        <span>👑</span> <span class="nav-text">Cheats</span>
       </button>
       <span class="header-divider"></span>
       <a class="btn btn-gh" href="https://github.com/andvolodko/dune2-sega-web/issues" target="_blank" rel="noopener noreferrer" title="Report a Bug or Request a Feature on GitHub">
-        <span>🐞</span> Issues
+        <span>🐞</span> <span class="nav-text nav-text-gh">Issues</span>
       </a>
       <a class="btn btn-gh" href="https://github.com/andvolodko/dune2-sega-web/discussions" target="_blank" rel="noopener noreferrer" title="Community Discussions & Chat on GitHub">
-        <span>💬</span> Discussions
+        <span>💬</span> <span class="nav-text nav-text-gh">Discussions</span>
       </a>
     </div>
   </header>
@@ -578,29 +51,70 @@
     <!-- Game Viewport Card -->
     <div class="game-card" id="game-card">
       <div class="game-viewport-wrapper">
-        <iframe class="game-frame" id="game-frame" src="rearrakis_src/build/dune_web.html?v=60fps" allow="autoplay; fullscreen"></iframe>
+        <iframe class="game-frame" id="game-frame" src="rearrakis_src/build/dune_web.html?v=1792602000" allow="autoplay; fullscreen"></iframe>
         <div class="crt-overlay"></div>
+
+        <!-- Tactical Preloader -->
+        <div class="game-preloader" id="game-preloader">
+          <div class="preloader-overlay"></div>
+          <div class="preloader-content">
+            <div class="preloader-radar">
+              <div class="radar-sweep"></div>
+              <div class="radar-ring radar-ring-outer"></div>
+              <div class="radar-ring radar-ring-mid"></div>
+              <div class="radar-planet"></div>
+            </div>
+            <div class="preloader-header">
+              <div class="preloader-brand">
+                <span class="preloader-logo-icon">🪐</span>
+                <h3>DUNE II <span class="preloader-badge">REARRAKIS</span></h3>
+              </div>
+              <div class="preloader-subtext">ORBITAL RECONNAISSANCE &bull; AOT WEB ENGINE</div>
+            </div>
+            <div class="preloader-progress-wrap">
+              <div class="preloader-bar-bg">
+                <div class="preloader-bar-fill" id="preloader-bar-fill">
+                  <div class="preloader-shimmer"></div>
+                </div>
+              </div>
+              <div class="preloader-meta">
+                <span class="preloader-status-text" id="preloader-status-text">Synchronizing Arrakis Tactical Core...</span>
+                <span class="preloader-pct" id="preloader-pct">8%</span>
+              </div>
+            </div>
+            <div class="preloader-tip" id="preloader-tip">
+              <span>💡</span> <span>Tactical Mouse Controls: Left Click to select/move &bull; Right Click to cancel &bull; Wheel to Zoom</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="viewport-controls">
-        <div style="display: flex; gap: 8px;">
-          <button class="btn" id="btn-fullscreen">
-            <span>⛶</span> Fullscreen
+        <div class="viewport-btn-group">
+          <button class="btn" id="btn-fullscreen" title="Toggle Fullscreen">
+            <span>⛶</span> <span class="btn-text hide-sm">Fullscreen</span>
           </button>
-          <button class="btn" id="btn-crt-toggle">
-            <span>📺</span> CRT Shader: OFF
+          <button class="btn btn-save-action" id="btn-quicksave" title="Quick Save state (Hotkey: F5)">
+            <span>💾</span> <span class="btn-text">Save</span> <span class="btn-hotkey">(F5)</span>
+          </button>
+          <button class="btn btn-load-action" id="btn-quickload" title="Quick Load state (Hotkey: F8)">
+            <span>📂</span> <span class="btn-text">Load</span> <span class="btn-hotkey">(F8)</span>
+          </button>
+          <button class="btn" id="btn-slots" title="Manage Save Slots & Export/Import">
+            <span>📑</span> <span class="btn-text">Slots</span>
+          </button>
+          <button class="btn" id="btn-crt-toggle" title="Toggle Vintage CRT Scanlines">
+            <span>📺</span> <span class="btn-text">CRT: OFF</span>
           </button>
           <button class="btn" id="btn-mute-toggle" title="Mute / Unmute Sound">
-            <span>🔊</span> Sound: ON
+            <span>🔊</span> <span class="btn-text">Sound</span>
           </button>
-          <button class="btn" id="btn-reload">
-            <span>🔄</span> Restart Game
+          <button class="btn" id="btn-reload" title="Restart Game Engine">
+            <span>🔄</span> <span class="btn-text hide-sm">Restart</span>
           </button>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div style="font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-mono);">
-            <span>ENGINE: <b>ReArrakis AOT C11</b></span> &bull; <span>AUDIO: <b>Yamaha YM2612</b></span>
-          </div>
+        <div class="engine-telemetry">
+          <span>ENGINE: <b>ReArrakis AOT C11</b></span> &bull; <span>AUDIO: <b>Yamaha YM2612</b></span>
         </div>
       </div>
     </div>
@@ -636,6 +150,14 @@
           <div class="mouse-hud-row">
             <span>Smooth Map Pan</span>
             <span class="hud-key">Screen Edge</span>
+          </div>
+          <div class="mouse-hud-row">
+            <span>Quick Save State</span>
+            <span class="hud-key">F5</span>
+          </div>
+          <div class="mouse-hud-row">
+            <span>Quick Load State</span>
+            <span class="hud-key">F8</span>
           </div>
           <div class="mouse-hud-row">
             <span>Toggle 3x Fast-Forward</span>
@@ -740,195 +262,38 @@
     </div>
   </div>
 
+  <!-- Save Slots Modal -->
+  <div class="modal-backdrop" id="modal-slots">
+    <div class="modal-card" style="max-width: 580px;">
+      <div class="modal-header">
+        <h2><span>💾</span> Battle Savestates & Storage Slots</h2>
+        <button class="modal-close" onclick="closeModal('modal-slots')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+          Capture the exact state of your battlefield and resume anytime. States include 68000 CPU registers, 64KB RAM, VDP VRAM, Z80 audio state, and campaign flags.
+        </p>
+
+        <div id="slots-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+          <!-- Dynamically generated via renderSlotsUI() -->
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 14px; border-top: 1px solid var(--border-subtle); padding-top: 14px;">
+          <button class="btn btn-save-action" id="btn-export-save" style="flex: 1;" title="Download active state to file">
+            <span>📥</span> Export File (.sav)
+          </button>
+          <button class="btn btn-load-action" id="btn-import-save" style="flex: 1;" title="Load state from disk">
+            <span>📤</span> Import File (.sav)
+          </button>
+          <input type="file" id="file-import-save" accept=".sav,.bin,.state" style="display: none;" />
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast" id="toast">Password copied to clipboard!</div>
 
-  <script>
-    const PASSWORDS = {
-      atreides: [
-        { level: 2, code: 'DIPLOMATIC' },
-        { level: 3, code: 'SPICEDANCE' },
-        { level: 4, code: 'ETERNALSUN' },
-        { level: 5, code: 'DEFTHUNTER' },
-        { level: 6, code: 'FAIRMENTAT' },
-        { level: 7, code: 'ASHLIKENNY' },
-        { level: 8, code: 'SONICBLAST' },
-        { level: 9, code: 'DUNERUNNER' },
-        { level: 'Final', code: 'DUNEFINALE' }
-      ],
-      harkonnen: [
-        { level: 2, code: 'DEMOLITION' },
-        { level: 3, code: 'SPICESATYR' },
-        { level: 4, code: 'BURNINGSUN' },
-        { level: 5, code: 'DARKHUNTER' },
-        { level: 6, code: 'EVILMENTAT' },
-        { level: 7, code: 'ITSJOEBWAN' },
-        { level: 8, code: 'DEVASTATOR' },
-        { level: 9, code: 'DEATHRULER' },
-        { level: 'Final', code: 'DUNEFINALE' }
-      ],
-      ordos: [
-        { level: 2, code: 'DOMINATION' },
-        { level: 3, code: 'SPICESABRE' },
-        { level: 4, code: 'ARRAKISSUN' },
-        { level: 5, code: 'COLDHUNTER' },
-        { level: 6, code: 'WILYMENTAT' },
-        { level: 7, code: 'SLYMELANIE' },
-        { level: 8, code: 'STEALTHWAR' },
-        { level: 9, code: 'POWERCRUSH' },
-        { level: 'Final', code: 'DUNEFINALE' }
-      ]
-    };
-
-    let currentHouse = 'atreides';
-
-    function renderPasswords(house) {
-      const container = document.getElementById('passwords-box');
-      const list = PASSWORDS[house] || [];
-      container.innerHTML = list.map(item => `
-        <div class="pass-item">
-          <span>${typeof item.level === 'number' ? 'Mission ' + item.level : item.level + ' Mission'}</span>
-          <span class="pass-code">${item.code}</span>
-          <button class="btn-copy" onclick="copyText('${item.code}')">Copy</button>
-        </div>
-      `).join('');
-    }
-
-    function renderFullPasswords() {
-      const fullList = document.getElementById('full-passwords-list');
-      let html = '';
-      for (const [house, items] of Object.entries(PASSWORDS)) {
-        html += `<h5 style="color: var(--accent-gold); text-transform: uppercase; margin-top: 12px;">House ${house}</h5>`;
-        items.forEach(item => {
-          html += `
-            <div class="pass-item">
-              <span>${typeof item.level === 'number' ? 'Mission ' + item.level : item.level + ' Mission'}</span>
-              <span class="pass-code">${item.code}</span>
-              <button class="btn-copy" onclick="copyText('${item.code}')">Copy 📋</button>
-            </div>
-          `;
-        });
-      }
-      fullList.innerHTML = html;
-    }
-
-    function copyText(text) {
-      navigator.clipboard?.writeText(text);
-      showToast(`🔑 Password "${text}" copied!`);
-    }
-
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2500);
-    }
-
-    function openModal(id) {
-      document.getElementById(id)?.classList.add('open');
-    }
-    function closeModal(id) {
-      document.getElementById(id)?.classList.remove('open');
-    }
-
-    // Event Listeners
-    document.querySelectorAll('.house-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.house-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentHouse = btn.dataset.house;
-        renderPasswords(currentHouse);
-      });
-    });
-
-    document.getElementById('btn-cheats')?.addEventListener('click', () => openModal('modal-cheats'));
-    document.getElementById('btn-manual')?.addEventListener('click', () => openModal('modal-manual'));
-
-    // CRT Toggle
-    let crtActive = false;
-    document.getElementById('btn-crt-toggle')?.addEventListener('click', (e) => {
-      crtActive = !crtActive;
-      document.getElementById('game-card').classList.toggle('crt-active', crtActive);
-      e.target.innerHTML = crtActive ? '<span>📺</span> CRT Shader: ON' : '<span>📺</span> CRT Shader: OFF';
-      showToast(crtActive ? '📺 Vintage CRT Scanlines Enabled' : 'CRT Shader Disabled');
-    });
-
-    // Sidebar Drawer Toggle
-    function toggleSidebar(open) {
-      const sidebar = document.getElementById('sidebar');
-      const backdrop = document.getElementById('sidebar-backdrop');
-      const isOpen = open !== undefined ? open : !sidebar.classList.contains('open');
-      sidebar.classList.toggle('open', isOpen);
-      backdrop.classList.toggle('open', isOpen);
-    }
-    document.getElementById('btn-toggle-sidebar')?.addEventListener('click', () => toggleSidebar());
-    document.getElementById('btn-close-sidebar')?.addEventListener('click', () => toggleSidebar(false));
-    document.getElementById('sidebar-backdrop')?.addEventListener('click', () => toggleSidebar(false));
-
-    // Sound Mute / Unmute
-    let isMuted = false;
-    function toggleMute(forceState) {
-      isMuted = forceState !== undefined ? forceState : !isMuted;
-      try {
-        const frame = document.getElementById('game-frame');
-        frame?.contentWindow?.setAudioMuted?.(isMuted);
-      } catch (e) {
-        console.warn('Audio mute error:', e);
-      }
-      const btn = document.getElementById('btn-mute-toggle');
-      if (btn) {
-        btn.innerHTML = isMuted ? '<span>🔇</span> Sound: MUTED' : '<span>🔊</span> Sound: ON';
-        btn.classList.toggle('btn-muted', isMuted);
-      }
-      showToast(isMuted ? '🔇 Sound Muted' : '🔊 Sound Unmuted');
-    }
-    document.getElementById('btn-mute-toggle')?.addEventListener('click', () => toggleMute());
-
-    // Restore mute state if game reloads
-    document.getElementById('game-frame')?.addEventListener('load', () => {
-      if (isMuted) {
-        setTimeout(() => {
-          try {
-            document.getElementById('game-frame')?.contentWindow?.setAudioMuted?.(true);
-          } catch(e) {}
-        }, 150);
-      }
-    });
-
-    // Fullscreen
-    document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
-      const card = document.getElementById('game-card');
-      if (!document.fullscreenElement) {
-        card.requestFullscreen?.().catch(err => {
-          console.error("Fullscreen error:", err);
-        });
-      } else {
-        document.exitFullscreen?.();
-      }
-    });
-
-    document.addEventListener('fullscreenchange', () => {
-      const isFs = !!document.fullscreenElement;
-      const btn = document.getElementById('btn-fullscreen');
-      if (btn) btn.innerHTML = isFs ? '<span>🗗</span> Exit Fullscreen' : '<span>⛶</span> Fullscreen';
-    });
-
-    // Reload
-    document.getElementById('btn-reload')?.addEventListener('click', () => {
-      document.getElementById('game-frame').src = 'rearrakis_src/build/dune_web.html?t=' + Date.now();
-      showToast('🔄 Restarting Game...');
-    });
-
-    // Close modals on background click
-    document.querySelectorAll('.modal-backdrop').forEach(modal => {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('open');
-      });
-    });
-
-    // Initial render
-    renderPasswords('atreides');
-    renderFullPasswords();
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>

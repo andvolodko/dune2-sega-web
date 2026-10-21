@@ -9,7 +9,11 @@ static void dune_mouse_event(SDLHost *h,CPU *c,const SDL_Event *e) {
         h->dune_view.pointer_valid=1;h->dune_view.pointer_x=e->motion.x;h->dune_view.pointer_y=e->motion.y;
         int x,y,world;
         if(!dune_view_mouse(h,c,e->motion.x,e->motion.y,&x,&y,&world) ||
-           !(world?dune_mouse_world_point(m,c,x,y):dune_mouse_point(m,c,x,y)))dune_mouse_reset(m);
+           !(world?dune_mouse_world_point(m,c,x,y):dune_mouse_point(m,c,x,y))){
+            dune_mouse_reset(m);
+            h->dune_view.pointer_valid=0;m->pan_x=0;m->pan_y=0;
+            if(dune_view_map(c))m->camera_hold=1;
+        }
         dune_view_pointer(h,c);
     } else if(e->type==SDL_MOUSEBUTTONDOWN) {
         h->dune_view.pointer_valid=1;h->dune_view.pointer_x=e->button.x;h->dune_view.pointer_y=e->button.y;
@@ -26,8 +30,12 @@ static void dune_mouse_event(SDLHost *h,CPU *c,const SDL_Event *e) {
                (e->window.event==SDL_WINDOWEVENT_FOCUS_LOST ||
                 e->window.event==SDL_WINDOWEVENT_LEAVE)) ||
               (e->type==SDL_KEYDOWN && sdl_pad_key(e->key.keysym.sym))) {
-        h->dune_view.pointer_valid=0;dune_mouse_reset(m);
-        if(e->type==SDL_WINDOWEVENT && dune_view_map(c))m->camera_hold=1;
+        h->dune_view.pointer_valid=0;m->pan_x=0;m->pan_y=0;dune_mouse_reset(m);
+        if(dune_view_map(c)){
+            m->camera_hold=1;
+            c->ram[0xbf12]=0;c->ram[0xbf13]=160;c->ram[0xbf14]=0;c->ram[0xbf15]=112;
+            memset(c->ram+0xbf0e,0,4);
+        }
     }
 }
 #endif

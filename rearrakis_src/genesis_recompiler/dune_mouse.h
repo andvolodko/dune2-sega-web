@@ -126,24 +126,28 @@ static int dune_mouse_world_local(const CPU *c,int wx,int wy,int *x,int *y){
 static void dune_mouse_pan(DuneMouse *m,CPU *c){
     if(c->pc!=0x78d0 || !m->camera_hold || c->pad_buttons[0] || dune_mouse_context(c)!=1)return;
     int queued=m->count && m->queue[m->head].world;
-    DuneClick hover={.wx=m->wx,.wy=m->wy};
-    DuneClick *q=queued?&m->queue[m->head]:m->point_world?&hover:NULL;int x,y;
-    int visible=q?dune_mouse_world_local(c,q->wx,q->wy,&x,&y):1;
+    if(!queued){
+        c->d[0]=(c->d[0]&~65535u);
+        c->d[1]=(c->d[1]&~65535u);
+        return;
+    }
+    DuneClick *q=&m->queue[m->head];int x,y;
+    int visible=dune_mouse_world_local(c,q->wx,q->wy,&x,&y);
     int moved=0;
     for(unsigned axis=0;axis<2;++axis){
         int pos=dune_word(c,0xe3ec+axis*2);
-        int target=q?(axis?q->wy-112:q->wx-160):pos;
+        int target=axis?q->wy-112:q->wx-160;
         unsigned bound=axis?0xe3fc:0xe400;
         int low=(int16_t)dune_word(c,bound),high=(int16_t)dune_word(c,bound+2);
         if(low<=high){if(target<low)target=low;if(target>high)target=high;}
-        int delta=q && visible?0:target-pos;if(delta>7)delta=7;if(delta<-7)delta=-7;
+        int delta=visible?0:target-pos;if(delta>7)delta=7;if(delta<-7)delta=-7;
         moved|=delta!=0;
         /* $78D8 stores D0/D1 into the camera delta fields itself. */
         c->d[axis]=(c->d[axis]&~65535u)|(uint16_t)delta;
     }
     /* The original mission camera bounds may exclude a border cell. Do not
        turn an unreachable click into a command at a different coordinate. */
-    if(queued && !visible && !moved){m->head=(m->head+1)%8;--m->count;m->stage=0;}
+    if(!visible && !moved){m->head=(m->head+1)%8;--m->count;m->stage=0;}
 }
 static void dune_mouse_warp(DuneMouse *m,CPU *c,int x,int y) {
     int left=dune_word(c,0xbf1a),top=dune_word(c,0xbf1c);

@@ -82,7 +82,12 @@ static void sdl_host_audio_open(SDLHost *h,CPU *c) {
         fprintf(stderr,"SDL2 audio unavailable: %s; video continues\n",SDL_GetError());return;
     }
     SDL_AudioSpec desired={0},obtained={0};
-    desired.freq=AUDIO_RATE;desired.format=AUDIO_S16SYS;desired.channels=2;desired.samples=512;
+#ifdef __EMSCRIPTEN__
+    desired.samples=2048;
+#else
+    desired.samples=512;
+#endif
+    desired.freq=AUDIO_RATE;desired.format=AUDIO_S16SYS;desired.channels=2;
     h->audio_device=SDL_OpenAudioDevice(NULL,0,&desired,&obtained,0);
     if(!h->audio_device) {
         fprintf(stderr,"SDL2 audio device unavailable: %s; video continues\n",SDL_GetError());return;
@@ -99,9 +104,15 @@ static int sdl_host_audio_service(SDLHost *h,CPU *c) {
     }
     // Bound latency even when a host cannot keep up. Never change chip clocks.
     Uint32 queued=SDL_GetQueuedAudioSize(h->audio_device);
+#ifdef __EMSCRIPTEN__
+    if(queued>AUDIO_RATE*4/2){
+        c->audio.dropped+=queued/4;SDL_ClearQueuedAudio(h->audio_device);h->audio_running=0;
+    }
+#else
     if(queued>AUDIO_RATE*4/10){
         c->audio.dropped+=queued/4;SDL_ClearQueuedAudio(h->audio_device);h->audio_running=0;
     }
+#endif
     int16_t buffer[1024*2];unsigned count;
     while((count=audio_pop(c,buffer,1024))!=0) {
 #ifdef GENESIS_DUNE_MOUSE
@@ -198,6 +209,7 @@ static int sdl_host_service(SDLHost *h, CPU *c) {
         }
     }
     if (redraw || h->last_frame!=c->vdp.rendered_frames){
+        if(!sdl_host_audio_service(h,c))return 0;
 #ifdef GENESIS_DUNE_MOUSE
         if(!dune_view_draw(h,c))return 0;
 #else
